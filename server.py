@@ -116,7 +116,7 @@ class GenerateImageInput(BaseModel):
     )
     model: ModelChoice = Field(
         default=ModelChoice.NANO_BANANA,
-        description="Model to use. 'gemini-2.5-flash-image' (Nano Banana, standard) or 'gemini-3-pro-image-preview' (Nano Banana Pro, higher quality)"
+        description="Model to use. Default: Nano Banana (standard, fast). Only use Nano Banana Pro when user explicitly requests 'high quality', 'highest quality', or 'pro'."
     )
     negative_prompt: Optional[str] = Field(
         default="text, words, letters, watermark, signature, blurry, low quality",
@@ -148,7 +148,7 @@ class GenerateImageToFileInput(BaseModel):
     )
     model: ModelChoice = Field(
         default=ModelChoice.NANO_BANANA,
-        description="Model to use. 'gemini-2.5-flash-image' (Nano Banana, standard) or 'gemini-3-pro-image-preview' (Nano Banana Pro, higher quality)"
+        description="Model to use. Default: Nano Banana (standard, fast). Only use Nano Banana Pro when user explicitly requests 'high quality', 'highest quality', or 'pro'."
     )
     negative_prompt: Optional[str] = Field(
         default="text, words, letters, watermark, signature, blurry, low quality",
