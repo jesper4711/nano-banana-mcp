@@ -43,7 +43,7 @@ if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() == "true":
         client = genai.Client(
             vertexai=True,
             project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
             credentials=credentials,
         )
     else:
@@ -51,7 +51,7 @@ if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() == "true":
         client = genai.Client(
             vertexai=True,
             project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
         )
 else:
     # AI Studio mode - uses API key
@@ -80,8 +80,8 @@ class StylePreset(str, Enum):
 
 class ModelChoice(str, Enum):
     """Available Nano Banana models."""
-    NANO_BANANA = "gemini-2.0-flash-exp"  # Image generation via Gemini
-    NANO_BANANA_PRO = "imagen-3.0-generate-002"  # Imagen 3 (higher quality)
+    NANO_BANANA = "gemini-2.5-flash-image"  # Nano Banana (standard)
+    NANO_BANANA_PRO = "gemini-3-pro-image-preview"  # Nano Banana Pro (high quality)
 
 
 # Style preset prompts that get appended to user prompts
@@ -116,7 +116,7 @@ class GenerateImageInput(BaseModel):
     )
     model: ModelChoice = Field(
         default=ModelChoice.NANO_BANANA,
-        description="Model to use. 'gemini-2.0-flash-exp' (free tier) or 'imagen-3.0-generate-002' (higher quality, requires billing)"
+        description="Model to use. 'gemini-2.5-flash-image' (Nano Banana, standard) or 'gemini-3-pro-image-preview' (Nano Banana Pro, higher quality)"
     )
     negative_prompt: Optional[str] = Field(
         default="text, words, letters, watermark, signature, blurry, low quality",
@@ -148,7 +148,7 @@ class GenerateImageToFileInput(BaseModel):
     )
     model: ModelChoice = Field(
         default=ModelChoice.NANO_BANANA,
-        description="Model to use for generation."
+        description="Model to use. 'gemini-2.5-flash-image' (Nano Banana, standard) or 'gemini-3-pro-image-preview' (Nano Banana Pro, higher quality)"
     )
     negative_prompt: Optional[str] = Field(
         default="text, words, letters, watermark, signature, blurry, low quality",
@@ -171,43 +171,40 @@ async def _generate_image(
     model: ModelChoice,
     negative_prompt: Optional[str]
 ) -> bytes:
-    """Generate an image using the Gemini API."""
+    """Generate an image using the Gemini API (Nano Banana models)."""
     full_prompt = _build_full_prompt(prompt, style_preset)
 
-    if model == ModelChoice.NANO_BANANA:
-        # Use Gemini 2.0 Flash for image generation
-        response = client.models.generate_content(
-            model=model.value,
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE", "TEXT"],
-                # Note: aspect ratio control may be limited in this model
-            )
+    # Add aspect ratio hint to prompt since these models don't have native aspect ratio control
+    aspect_hints = {
+        "16:9": "wide landscape format, 16:9 aspect ratio",
+        "3:2": "landscape format, 3:2 aspect ratio",
+        "1:1": "square format, 1:1 aspect ratio",
+        "2:3": "portrait format, 2:3 aspect ratio",
+        "9:16": "tall portrait format, 9:16 aspect ratio",
+    }
+    aspect_hint = aspect_hints.get(aspect_ratio.value, "")
+    if aspect_hint:
+        full_prompt = f"{full_prompt}, {aspect_hint}"
+
+    # Add negative prompt as avoidance instructions
+    if negative_prompt:
+        full_prompt = f"{full_prompt}. Avoid: {negative_prompt}"
+
+    # Both Nano Banana and Nano Banana Pro use generate_content API
+    response = client.models.generate_content(
+        model=model.value,
+        contents=full_prompt,
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE", "TEXT"],
         )
+    )
 
-        # Extract image from response
-        for part in response.candidates[0].content.parts:
-            if part.inline_data is not None:
-                return part.inline_data.data
+    # Extract image from response
+    for part in response.candidates[0].content.parts:
+        if part.inline_data is not None:
+            return part.inline_data.data
 
-        raise ValueError("No image generated in response")
-
-    else:
-        # Use Imagen 3 for higher quality
-        response = client.models.generate_images(
-            model=model.value,
-            prompt=full_prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio=aspect_ratio.value,
-                negative_prompt=negative_prompt,
-            )
-        )
-
-        if response.generated_images:
-            return response.generated_images[0].image.image_bytes
-
-        raise ValueError("No image generated in response")
+    raise ValueError("No image generated in response")
 
 
 @mcp.tool(
