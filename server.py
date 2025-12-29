@@ -31,13 +31,28 @@ mcp = FastMCP("nano_banana_mcp")
 # The client auto-detects configuration from environment variables:
 # - GEMINI_API_KEY: Use Google AI Studio
 # - GOOGLE_GENAI_USE_VERTEXAI=True + GOOGLE_CLOUD_PROJECT: Use Vertex AI
+# - GOOGLE_SERVICE_ACCOUNT_FILE: Use service account (recommended for Vertex AI)
 if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() == "true":
-    # Vertex AI mode - uses Application Default Credentials (gcloud auth)
-    client = genai.Client(
-        vertexai=True,
-        project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
-        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-    )
+    # Vertex AI mode
+    sa_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+    if sa_file:
+        # Use service account credentials (recommended)
+        from google.oauth2.service_account import Credentials
+        scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        credentials = Credentials.from_service_account_file(sa_file, scopes=scopes)
+        client = genai.Client(
+            vertexai=True,
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+            credentials=credentials,
+        )
+    else:
+        # Use Application Default Credentials (gcloud auth)
+        client = genai.Client(
+            vertexai=True,
+            project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+            location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
+        )
 else:
     # AI Studio mode - uses API key
     client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -65,8 +80,8 @@ class StylePreset(str, Enum):
 
 class ModelChoice(str, Enum):
     """Available Nano Banana models."""
-    NANO_BANANA = "gemini-2.0-flash-exp"  # Free tier, faster
-    NANO_BANANA_PRO = "imagen-3.0-generate-002"  # Higher quality, requires billing
+    NANO_BANANA = "gemini-2.0-flash-exp"  # Image generation via Gemini
+    NANO_BANANA_PRO = "imagen-3.0-generate-002"  # Imagen 3 (higher quality)
 
 
 # Style preset prompts that get appended to user prompts
