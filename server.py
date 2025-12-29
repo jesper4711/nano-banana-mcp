@@ -5,6 +5,10 @@ Nano Banana MCP Server
 A standalone MCP server for AI image generation using Google's Gemini API
 (Nano Banana / Nano Banana Pro models).
 
+Supports both:
+- Google AI Studio (via GEMINI_API_KEY)
+- Vertex AI (via GOOGLE_GENAI_USE_VERTEXAI=True + gcloud auth)
+
 Provides tools for generating images that can be used in presentations,
 documents, or any other context requiring AI-generated visuals.
 """
@@ -24,7 +28,19 @@ from pydantic import BaseModel, Field, ConfigDict
 mcp = FastMCP("nano_banana_mcp")
 
 # Initialize Gemini client
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# The client auto-detects configuration from environment variables:
+# - GEMINI_API_KEY: Use Google AI Studio
+# - GOOGLE_GENAI_USE_VERTEXAI=True + GOOGLE_CLOUD_PROJECT: Use Vertex AI
+if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").lower() == "true":
+    # Vertex AI mode - uses Application Default Credentials (gcloud auth)
+    client = genai.Client(
+        vertexai=True,
+        project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
+    )
+else:
+    # AI Studio mode - uses API key
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
 class AspectRatio(str, Enum):

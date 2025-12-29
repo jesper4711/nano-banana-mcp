@@ -17,25 +17,24 @@ A standalone MCP server for AI image generation using Google's Nano Banana (Gemi
 
 ## Quick Start
 
-### 1. Get a Gemini API Key
+### Option A: Vertex AI (Recommended for EU/Sweden)
 
-Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
+Google AI Studio blocks image generation in EU countries. Use Vertex AI instead:
 
-### 2. Install
+#### 1. Prerequisites
+- Google Cloud project with Vertex AI API enabled
+- `gcloud` CLI authenticated (`gcloud auth application-default login`)
+
+#### 2. Install
 
 ```bash
 cd nano-banana-mcp
 pip install -e .
 ```
 
-Or with uv:
-```bash
-uv pip install -e .
-```
+#### 3. Configure Claude Code
 
-### 3. Configure Claude Code
-
-Add to your Claude Code MCP settings (`~/.claude/settings.json` or VS Code settings):
+Add to `~/.mcp.json`:
 
 ```json
 {
@@ -44,20 +43,40 @@ Add to your Claude Code MCP settings (`~/.claude/settings.json` or VS Code setti
       "command": "python",
       "args": ["/path/to/nano-banana-mcp/server.py"],
       "env": {
-        "GEMINI_API_KEY": "your-api-key-here"
+        "GOOGLE_CLOUD_PROJECT": "your-gcp-project-id",
+        "GOOGLE_CLOUD_LOCATION": "global",
+        "GOOGLE_GENAI_USE_VERTEXAI": "True"
       }
     }
   }
 }
 ```
 
-Or using uv:
+---
+
+### Option B: Google AI Studio (US/Non-EU only)
+
+#### 1. Get a Gemini API Key
+
+Get your API key from [Google AI Studio](https://aistudio.google.com/apikey).
+
+#### 2. Install
+
+```bash
+cd nano-banana-mcp
+pip install -e .
+```
+
+#### 3. Configure Claude Code
+
+Add to `~/.mcp.json`:
+
 ```json
 {
   "mcpServers": {
     "nano-banana": {
-      "command": "uv",
-      "args": ["run", "--directory", "/path/to/nano-banana-mcp", "python", "server.py"],
+      "command": "python",
+      "args": ["/path/to/nano-banana-mcp/server.py"],
       "env": {
         "GEMINI_API_KEY": "your-api-key-here"
       }
